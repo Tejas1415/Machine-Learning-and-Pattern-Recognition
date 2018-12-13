@@ -1,0 +1,109 @@
+% Homework4 Question 1.
+%https://in.mathworks.com/help/stats/gmdistribution.html
+%https://in.mathworks.com/help/stats/fitgmdist.html
+%https://in.mathworks.com/help/stats/fit-a-gaussian-mixture-model-to-data.html
+
+
+clc
+clear all
+close all
+
+%% Generating the samples
+beta_true1 = [0.75,0.20,0.05];
+beta_true2 = [0.80, 0.15, 0.05];
+beta_true3 = [0.90, 0.05, 0.05];
+mu_true(1,:) = [0, 0];
+mu_true(2,:) = [3, 0];
+mu_true(3,:) = [0, 2];
+Sigma_true(:,:,1) = [1 0;0 1];
+Sigma_true(:,:,2) = [1 0;0 1];
+Sigma_true(:,:,3) = [1 0;0 1];
+
+%gm = gmdistribution(mu_true, Sigma_true, beta_true1);
+%X1 = [beta_true1(1)*mvnrnd(mu_true(1,:),Sigma_true(:,:,1),100); beta_true1(2)* mvnrnd(mu_true(2,:),Sigma_true(:,:,2),100); beta_true1(3)*mvnrnd(mu_true(3,:),Sigma_true(:,:,3),100)];
+X2 = [beta_true2(1)*mvnrnd(mu_true(1,:),Sigma_true(:,:,1),100); beta_true2(2)* mvnrnd(mu_true(2,:),Sigma_true(:,:,2),100); beta_true2(3)*mvnrnd(mu_true(3,:),Sigma_true(:,:,3),100)];
+X3 = [beta_true3(1)*mvnrnd(mu_true(1,:),Sigma_true(:,:,1),100); beta_true3(2)* mvnrnd(mu_true(2,:),Sigma_true(:,:,2),100); beta_true3(3)*mvnrnd(mu_true(3,:),Sigma_true(:,:,3),100)];
+
+
+%% For 1st Beta component value.
+BIC = zeros(1,5);     % M ranges from 1 to 5.
+BIC_min_index = zeros(1,1000); % the number of monte_carlo_runs 
+BIC_MxR = zeros(1,5); % to start vertical concatenation
+for monte_carlo = 1:1000
+    % To avoid ill conditioned error
+    try                     
+%X1 = [mvnrnd(mu_true(1,:),Sigma_true(:,:,1),100*beta_true1(1)); mvnrnd(mu_true(2,:),Sigma_true(:,:,2),100*beta_true1(2)); mvnrnd(mu_true(3,:),Sigma_true(:,:,3),100*beta_true1(3))];
+% Change the component of data generation for beta_2 and beta_3 components..
+X1 = [mvnrnd(mu_true(1,:),Sigma_true(:,:,1),100*beta_true2(1)); mvnrnd(mu_true(2,:),Sigma_true(:,:,2),100*beta_true1(2)); mvnrnd(mu_true(3,:),Sigma_true(:,:,3),100*beta_true1(3))];
+%X1 = [mvnrnd(mu_true(1,:),Sigma_true(:,:,1),100*beta_true3(1)); mvnrnd(mu_true(2,:),Sigma_true(:,:,2),100*beta_true1(2)); mvnrnd(mu_true(3,:),Sigma_true(:,:,3),100*beta_true1(3))];
+gm1 = fitgmdist(X1,3,'MaxIter',500,'covariancetype','diagonal','RegularizationValue',10^-15);
+
+%plot the results
+% % figure,
+% % scatter(X1(:,1),X1(:,2),10,'.');
+% % hold on
+% % gmPDF = @(x,y)pdf(gm1,[x y]);
+% % hold on
+% % h = ezcontour(gmPDF,[-8 6],[-8 6]);
+% % title('Simulated Data and Contour lines of pdf');
+
+
+% Now calculate the BIC{m} where M ranges from 1 to 5
+gm = cell(1,5);
+for M = 1:5
+    gm{M} = fitgmdist(X1,M);
+    BIC(M)= gm{M}.BIC;
+end
+%Visualise the components of BIC
+BIC;
+
+% Displaying the number of components for which AIC value is the least.
+[minBIC,numComponents] = min(BIC);
+BIC_min_index(monte_carlo) = numComponents;
+
+% For each value of M for R=1000 monte carlo runs storing the BIC in a
+% single matrix
+
+BIC_MxR = vertcat(BIC_MxR, BIC); % each column represents M, and row represents # of montecarlo runs
+
+% the best model is
+% gm2 = gm{numComponents};
+    catch
+        continue;
+    end
+end
+figure(2), histogram(BIC_min_index); title('Histogram of BIC minimization');
+
+% Printing the theta(m^) values. That is Mu and Sigma values at which EM
+% algorithm operates.
+EM_theta_cap_mu = gm1.mu;
+EM_theta_cap_sigma = gm1.Sigma;
+
+% To get the values of 5% 50% and 90% BIC values
+BIC_MxR(1,:) = []; % Removing the zero padding
+sorted_BIC = sort(BIC_MxR);
+BIC_5percent = sorted_BIC(0.05*monte_carlo,:);
+BIC_50percent = sorted_BIC(0.5*monte_carlo, :);
+BIC_90percent = sorted_BIC(0.9*monte_carlo, :);
+
+% potting BIC**percent values Vs M=[1, 2, 3, 4, 5];
+% Also, plotting corresponding Medians
+figure(3), plot([1 2 3 4 5], BIC_5percent,'r'); title('BIC 5% Vs M'); xlabel('M'); ylabel('BIC values');
+hold on
+plot([1 2 3 4 5], BIC_50percent, 'g'); title('BIC 50% Vs M'); xlabel('M'); ylabel('BIC values');
+hold on
+plot([1 2 3 4 5], BIC_90percent, 'b'); title('BIC **% Vs M'); xlabel('M'); ylabel('BIC values');
+hold on
+plot(3, BIC_5percent(3),'kx','MarkerSize',12);
+hold on
+plot(3, BIC_50percent(3),'kx','MarkerSize',12);
+hold on
+plot(3, BIC_90percent(3),'kx','MarkerSize',12)
+legend('BIC_5percent','BIC_50percent', 'BIC_90percent','Medians', 'Location','Best');
+hold off
+
+
+
+
+
+
